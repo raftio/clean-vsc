@@ -76,26 +76,71 @@ install_extensions() {
     return 0
 }
 
+# Function to check if editor is installed
+is_editor_installed() {
+    local editor_name=$1
+    local cli_cmd=$2
+    
+    # Check if CLI command exists
+    if command -v "$cli_cmd" &> /dev/null; then
+        return 0
+    fi
+    
+    # Check for application bundle on macOS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        local app_path
+        case "$editor_name" in
+            "VS Code")
+                app_path="/Applications/Visual Studio Code.app"
+                ;;
+            "Cursor")
+                app_path="/Applications/Cursor.app"
+                ;;
+        esac
+        
+        if [[ -n "$app_path" ]] && [[ -d "$app_path" ]]; then
+            return 0
+        fi
+    fi
+    
+    # Check for Linux desktop entries
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if [[ -f "/usr/share/applications/code.desktop" ]] && [[ "$editor_name" == "VS Code" ]]; then
+            return 0
+        elif [[ -f "/usr/share/applications/cursor.desktop" ]] && [[ "$editor_name" == "Cursor" ]]; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
 # Function to install for a specific editor
 install_for_editor() {
     local editor_name=$1
     local user_dir=$2
+    local cli_cmd=$3
     
-    if [[ -d "$user_dir" ]] || [[ -d "$(dirname "$user_dir")" ]]; then
-        echo -e "${YELLOW}Installing for $editor_name...${NC}"
+    # Check if editor is actually installed
+    if ! is_editor_installed "$editor_name" "$cli_cmd"; then
+        echo -e "   $editor_name not installed, skipping..."
+        return 1
+    fi
+    
+    echo -e "${YELLOW}Installing for $editor_name...${NC}"
+    
+    # Create User directory if not exists
+    mkdir -p "$user_dir"
+    
+    # Backup existing settings if exists
+    if [[ -f "$user_dir/settings.json" ]]; then
+        backup_file="$user_dir/settings.json.backup.$(date +%Y%m%d_%H%M%S)"
+        cp "$user_dir/settings.json" "$backup_file"
+        echo -e "   Backed up existing settings to: ${backup_file##*/}"
         
-        # Create User directory if not exists
-        mkdir -p "$user_dir"
-        
-        # Backup existing settings if exists
-        if [[ -f "$user_dir/settings.json" ]]; then
-            backup_file="$user_dir/settings.json.backup.$(date +%Y%m%d_%H%M%S)"
-            cp "$user_dir/settings.json" "$backup_file"
-            echo -e "   Backed up existing settings to: ${backup_file##*/}"
-            
-            # Merge settings using Python (existing settings + new settings, new settings override conflicts)
-            # Handles trailing commas in JSONC
-            python3 << PYEOF
+        # Merge settings using Python (existing settings + new settings, new settings override conflicts)
+        # Handles trailing commas in JSONC
+        python3 << PYEOF
 import json
 import re
 
@@ -116,18 +161,14 @@ existing.update(new)
 with open('$user_dir/settings.json', 'w') as f:
     json.dump(existing, f, indent=4)
 PYEOF
-            echo -e "   Merged settings.json (existing settings preserved)"
-        else
-            # No existing settings, just copy and replace placeholder
-            sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json" > "$user_dir/settings.json"
-            echo -e "   Installed settings.json"
-        fi
-        
-        return 0
+        echo -e "   Merged settings.json (existing settings preserved)"
     else
-        echo -e "   $editor_name not found, skipping..."
-        return 1
+        # No existing settings, just copy and replace placeholder
+        sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json" > "$user_dir/settings.json"
+        echo -e "   Installed settings.json"
     fi
+    
+    return 0
 }
 
 # Install custom CSS
@@ -137,10 +178,10 @@ cp "$SCRIPT_DIR/index.css" "$CSS_DIR/index.css"
 echo -e "   Installed index.css to $CSS_DIR"
 
 # Install for VS Code
-install_for_editor "VS Code" "$VSCODE_USER_DIR" || true
+install_for_editor "VS Code" "$VSCODE_USER_DIR" "code" || true
 
 # Install for Cursor
-install_for_editor "Cursor" "$CURSOR_USER_DIR" || true
+install_for_editor "Cursor" "$CURSOR_USER_DIR" "cursor" || true
 
 # Install extensions
 echo ""
