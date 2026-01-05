@@ -17,8 +17,7 @@ A distraction-free "writing room" setup for VS Code & Cursor — maximum focus, 
 ## Get Started
 
 ```bash
-chmod +x index.sh
-./index.sh
+curl -fsSL https://raw.githubusercontent.com/raftio/clean-vsc/main/index.sh | bash
 ```
 
 After installation:
