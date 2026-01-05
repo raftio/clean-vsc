@@ -25,7 +25,7 @@ After installation:
 2. Run command: `Enable Custom CSS and JS`
 3. Restart the editor
 
-> **Note:** Your existing `settings.json` is automatically backed up before overwriting.
+> **Note:** Your existing `settings.json` is automatically backed up and merged (not replaced).
 
 ## Supported Platforms
 
