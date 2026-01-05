@@ -1,0 +1,50 @@
+/*titlebar: hide line*/
+.titlebar {
+    border-bottom: none !important;
+}
+
+/*titlebar: hide display -> keep close / zoom / minimize buttons*/
+.titlebar-container {
+    display: none !important;
+}
+
+/*title: file path in the bottom*/
+.monaco-workbench .part.editor>.content .editor-group-container>.title {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    background-color: #2a2d3d00 !important;
+}
+
+/* line in writeroom */
+.monaco-split-view2 {
+    --separator-border: none !important;
+}
+
+/* search bar */
+.quick-input-widget {
+    top: 50% !important;
+    transform: translateY(-50%);
+}
+
+/* .monaco-action-bar .action-item {
+    display: none !important;
+} */
+
+/* .monaco-action-bar .icon {
+    display: none !important;
+} */
+
+.monaco-workbench .part>.composite.title {
+    display: none !important;
+}
+
+.monaco-workbench .part {
+    height: 100% !important;
+}
+
+.monaco-list .monaco-scrollable-element>.scrollbar.vertical, .monaco-pane-view>.monaco-split-view2.vertical>.monaco-scrollable-element>.scrollbar.vertical {
+    display: none !important;
+}
