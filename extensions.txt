@@ -1,0 +1,6 @@
+# Clean VSC Extensions
+# Add extension IDs here, one per line
+# Lines starting with # are comments
+
+# Custom CSS (required for index.css to work)
+be5invis.vscode-custom-css
