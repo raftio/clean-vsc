@@ -92,11 +92,36 @@ install_for_editor() {
             backup_file="$user_dir/settings.json.backup.$(date +%Y%m%d_%H%M%S)"
             cp "$user_dir/settings.json" "$backup_file"
             echo -e "   Backed up existing settings to: ${backup_file##*/}"
+            
+            # Merge settings using Python (existing settings + new settings, new settings override conflicts)
+            # Handles trailing commas in JSONC
+            python3 << PYEOF
+import json
+import re
+
+def parse_jsonc(text):
+    # Remove trailing commas before } or ]
+    text = re.sub(r',(\s*[}\]])', r'\1', text)
+    return json.loads(text)
+
+with open('$user_dir/settings.json') as f:
+    existing = parse_jsonc(f.read())
+
+# Read and replace {{HOME}} placeholder
+with open('$SCRIPT_DIR/setting.json') as f:
+    new_content = f.read().replace('{{HOME}}', '$HOME')
+    new = parse_jsonc(new_content)
+
+existing.update(new)
+with open('$user_dir/settings.json', 'w') as f:
+    json.dump(existing, f, indent=4)
+PYEOF
+            echo -e "   Merged settings.json (existing settings preserved)"
+        else
+            # No existing settings, just copy and replace placeholder
+            sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json" > "$user_dir/settings.json"
+            echo -e "   Installed settings.json"
         fi
-        
-        # Copy settings.json
-        cp "$SCRIPT_DIR/setting.json" "$user_dir/settings.json"
-        echo -e "   Installed settings.json"
         
         return 0
     else
@@ -129,6 +154,6 @@ echo -e "${YELLOW}Important: To enable custom CSS, you need to:${NC}"
 echo "   1. Run command: 'Enable Custom CSS and JS'"
 echo "   2. Restart VS Code/Cursor"
 echo ""
-echo -e "${YELLOW}Note:${NC} Custom CSS path is set to: file:///$CSS_DIR/index.css"
+echo -e "${YELLOW}Note:${NC} Custom CSS path is set to: file://$CSS_DIR/index.css"
 
 

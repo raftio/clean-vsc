@@ -27,7 +27,7 @@
     "zenMode.showTabs": "single",
     "workbench.sideBar.location": "right",
     "vscode_custom_css.imports": [
-        "file:///.clean_vsc/customs/index.css"
+        "file://{{HOME}}/.clean_vsc/customs/index.css"
     ],
     "explorer.confirmPasteNative": false,
     "window.zoomLevel": 1,
