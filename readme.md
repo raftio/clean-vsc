@@ -2,9 +2,6 @@
 
 A distraction-free "writing room" setup for VS Code & Cursor — maximum focus, zero noise.
 
-![Demo](assets/demo.png)
-
-![Centered Command Palette](assets/centered_command.png)
 
 ## What It Does
 
@@ -13,6 +10,10 @@ A distraction-free "writing room" setup for VS Code & Cursor — maximum focus, 
 - Centers the command palette
 - Cleans up titlebar and split view separators
 - Enables word wrap with deep indentation
+
+![Centered Command Palette](assets/centered_command.png)
+
+![Demo](assets/demo.png)
 
 ## Get Started
 
