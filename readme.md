@@ -33,6 +33,15 @@ After installation:
 - macOS
 - Linux
 
+## Usage
+
+- Open the Terminal
+    - Press `Command+P`, type "> Focus: Terminal", then press Enter
+    - Or press `Command+J`
+- Show the Explorer (Files)
+    - Press `Command+Shift+E`
+    - Or press `Command+B`
+
 ## More Options
 
 - **Emacs key bindings** — Add your preferred keybinding extension to `extensions.txt`
