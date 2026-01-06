@@ -41,6 +41,9 @@ After installation:
 - Show the Explorer (Files)
     - Press `Command+Shift+E`
     - Or press `Command+B`
+- Find a file: Press `Command+P` and start typing the file name
+- Search the workspace: Press `Command+Shift+F`
+- Using Emacs keybindings: Press `Control+X` then `R` (if you installed the Emacs keybinding extension)
 
 ## More Options
 
