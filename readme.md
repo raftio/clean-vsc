@@ -28,6 +28,23 @@ After installation:
 
 > **Note:** Your existing `settings.json` is automatically backed up and merged (not replaced).
 
+## Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raftio/clean-vsc/main/uninstall.sh | bash
+```
+
+Or run locally:
+
+```bash
+./uninstall.sh
+```
+
+This will:
+- Remove custom CSS files
+- Restore settings.json from backup
+- Uninstall extensions from extensions.txt
+
 ## Supported Platforms
 
 - macOS

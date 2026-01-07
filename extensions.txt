@@ -4,3 +4,9 @@
 
 # Custom CSS (required for index.css to work)
 be5invis.vscode-custom-css
+
+# Emacs keybindings
+lfs.vscode-emacs-friendly
+
+# Fix checksums after custom CSS injection
+RimuruChan.vscode-fix-checksums-next
