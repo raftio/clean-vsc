@@ -5,7 +5,19 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_BASE_URL="https://raw.githubusercontent.com/raftio/clean-vsc/main"
+
+# Detect if running from curl pipe or as a local script
+if [[ -t 0 ]] && [[ -f "$0" ]]; then
+    # Running as a local script
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    REMOTE_MODE=false
+else
+    # Running from curl pipe - use temp directory
+    SCRIPT_DIR="$(mktemp -d)"
+    REMOTE_MODE=true
+    trap "rm -rf '$SCRIPT_DIR'" EXIT
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,6 +27,15 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Clean VSC Installer${NC}"
 echo "=========================="
+
+# Download required files if running in remote mode
+if [[ "$REMOTE_MODE" == true ]]; then
+    echo -e "${YELLOW}Downloading configuration files...${NC}"
+    curl -fsSL "$REPO_BASE_URL/index.css" -o "$SCRIPT_DIR/index.css" || { echo -e "${RED}Failed to download index.css${NC}"; exit 1; }
+    curl -fsSL "$REPO_BASE_URL/setting.json" -o "$SCRIPT_DIR/setting.json" || { echo -e "${RED}Failed to download setting.json${NC}"; exit 1; }
+    curl -fsSL "$REPO_BASE_URL/extensions.txt" -o "$SCRIPT_DIR/extensions.txt" 2>/dev/null || true
+    echo -e "   Downloaded configuration files"
+fi
 
 # Detect OS and set VS Code paths
 if [[ "$OSTYPE" == "darwin"* ]]; then
