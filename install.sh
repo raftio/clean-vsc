@@ -7,13 +7,18 @@ set -e
 
 REPO_BASE_URL="https://raw.githubusercontent.com/raftio/clean-vsc/main"
 
-# Detect if running from curl pipe or as a local script
-if [[ -t 0 ]] && [[ -f "$0" ]]; then
-    # Running as a local script
+# Try to get script directory if running as a local file
+if [[ -f "$0" ]] && [[ "$0" != "bash" ]] && [[ "$0" != "/bin/bash" ]] && [[ "$0" != "-bash" ]]; then
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+else
+    SCRIPT_DIR=""
+fi
+
+# Check if required files exist locally, otherwise download them
+if [[ -n "$SCRIPT_DIR" ]] && [[ -f "$SCRIPT_DIR/index.css" ]] && [[ -f "$SCRIPT_DIR/setting.json" ]]; then
     REMOTE_MODE=false
 else
-    # Running from curl pipe - use temp directory
+    # Need to download files - use temp directory
     SCRIPT_DIR="$(mktemp -d)"
     REMOTE_MODE=true
     trap "rm -rf '$SCRIPT_DIR'" EXIT
