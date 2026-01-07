@@ -62,6 +62,58 @@ CSS_DIR="$HOME/.clean_vsc/customs"
 # Extensions file
 EXT_FILE="$SCRIPT_DIR/extensions.txt"
 
+# Install jq if not available (required for JSON merging)
+if ! command -v jq &> /dev/null; then
+    echo -e "${YELLOW}Installing jq (required for JSON merging)...${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - use Homebrew
+        if command -v brew &> /dev/null; then
+            brew install jq
+        else
+            echo -e "${RED}Homebrew not found. Please install jq manually: brew install jq${NC}"
+            exit 1
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux - try apt-get, yum, or dnf
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y jq
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y jq
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y jq
+        else
+            echo -e "${RED}Package manager not found. Please install jq manually.${NC}"
+            exit 1
+        fi
+    fi
+    echo -e "   jq installed successfully"
+fi
+
+# Function to download VSIX from VS Code marketplace
+download_vsix() {
+    local ext_id=$1
+    local output_path=$2
+    
+    # Parse publisher and extension name from ID (publisher.extension-name)
+    local publisher="${ext_id%%.*}"
+    local ext_name="${ext_id#*.}"
+    
+    # VS Code marketplace download URL
+    local download_url="https://${publisher}.gallery.vsassets.io/_apis/public/gallery/publisher/${publisher}/extension/${ext_name}/latest/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage"
+    
+    if curl -fsSL "$download_url" -o "$output_path" 2>/dev/null; then
+        return 0
+    fi
+    
+    # Fallback URL pattern
+    download_url="https://marketplace.visualstudio.com/_apis/public/gallery/publishers/${publisher}/vsextensions/${ext_name}/latest/vspackage"
+    if curl -fsSL "$download_url" -o "$output_path" 2>/dev/null; then
+        return 0
+    fi
+    
+    return 1
+}
+
 # Function to install extensions for a specific editor CLI
 install_extensions() {
     local cli_cmd=$1
@@ -80,6 +132,11 @@ install_extensions() {
     
     echo -e "${YELLOW}Installing extensions for $editor_name...${NC}"
     
+    # Create temp dir for VSIX downloads
+    local vsix_dir
+    vsix_dir=$(mktemp -d)
+    trap "rm -rf '$vsix_dir'" RETURN
+    
     local count=0
     while IFS= read -r ext || [[ -n "$ext" ]]; do
         # Skip empty lines and comments
@@ -90,11 +147,28 @@ install_extensions() {
         [[ -z "$ext" ]] && continue
         
         echo -e "   Installing $ext..."
-        if "$cli_cmd" --install-extension "$ext" --force &> /dev/null; then
-            echo -e "   Done: $ext"
-            ((count++))
+        
+        # For Cursor, download VSIX and install from local file
+        if [[ "$cli_cmd" == "cursor" ]]; then
+            local vsix_file="$vsix_dir/${ext}.vsix"
+            if download_vsix "$ext" "$vsix_file"; then
+                if "$cli_cmd" --install-extension "$vsix_file" --force &> /dev/null; then
+                    echo -e "   Done: $ext"
+                    ((count++))
+                else
+                    echo -e "   Failed to install $ext (install error)"
+                fi
+            else
+                echo -e "   Failed to install $ext (download error)"
+            fi
         else
-            echo -e "   Failed to install $ext"
+            # For VS Code, use direct marketplace install
+            if "$cli_cmd" --install-extension "$ext" --force &> /dev/null; then
+                echo -e "   Done: $ext"
+                ((count++))
+            else
+                echo -e "   Failed to install $ext"
+            fi
         fi
     done < "$EXT_FILE"
     
@@ -168,47 +242,16 @@ install_for_editor() {
         local new_settings
         new_settings=$(sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json")
         
-        # Merge settings using pure bash (top-level keys only)
-        # Strip JSONC features from existing settings
+        # Strip JSONC comments from existing settings
         local existing_clean
         existing_clean=$(sed 's|//.*||g; s|/\*.*\*/||g' "$user_dir/settings.json" | \
-            sed ':a;N;$!ba;s/,\([\n\t ]*[}\]]\)/\1/g')
+            perl -0777 -pe 's/,(\s*[}\]])/\1/g')
         
-        # Merge: parse both JSONs and combine (new overrides existing)
+        # Merge using jq: existing settings + new settings (new overrides existing)
         local merged
-        merged=$(awk '
-BEGIN { in_new=0; depth=0 }
-FNR==1 && NR!=1 { in_new=1 }
-{
-    # Track brace depth for multi-line values
-    gsub(/[^{}[\]]/, "", $0)
-    depth += gsub(/{|\[/, "&") - gsub(/}|\]/, "&")
-}
-/^[[:space:]]*"[^"]+":/ {
-    match($0, /"[^"]+"/)
-    key = substr($0, RSTART, RLENGTH)
-    # Store key-value, new file overwrites existing
-    if (in_new || !(key in keys)) {
-        keys[key] = $0
-        if (!(key in order)) order[key] = ++n
-    }
-}
-END {
-    print "{"
-    for (i=1; i<=n; i++) {
-        for (key in order) {
-            if (order[key] == i) {
-                val = keys[key]
-                gsub(/,$/, "", val)
-                printf "    %s%s\n", val, (i<n ? "," : "")
-            }
-        }
-    }
-    print "}"
-}
-' <(echo "$existing_clean") <(echo "$new_settings") 2>/dev/null)
+        merged=$(jq -s '.[0] * .[1]' <(echo "$existing_clean") <(echo "$new_settings") 2>/dev/null)
         
-        if [[ -n "$merged" ]] && [[ "$merged" != "{}" ]]; then
+        if [[ -n "$merged" ]] && [[ "$merged" != "{}" ]] && [[ "$merged" != "null" ]]; then
             echo "$merged" > "$user_dir/settings.json"
             echo -e "   Merged settings.json (existing settings preserved)"
         else
