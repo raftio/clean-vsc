@@ -164,30 +164,31 @@ install_for_editor() {
         cp "$user_dir/settings.json" "$backup_file"
         echo -e "   Backed up existing settings to: ${backup_file##*/}"
         
-        # Merge settings using Python (existing settings + new settings, new settings override conflicts)
-        # Handles trailing commas in JSONC
-        python3 << PYEOF
-import json
-import re
-
-def parse_jsonc(text):
-    # Remove trailing commas before } or ]
-    text = re.sub(r',(\s*[}\]])', r'\1', text)
-    return json.loads(text)
-
-with open('$user_dir/settings.json') as f:
-    existing = parse_jsonc(f.read())
-
-# Read and replace {{HOME}} placeholder
-with open('$SCRIPT_DIR/setting.json') as f:
-    new_content = f.read().replace('{{HOME}}', '$HOME')
-    new = parse_jsonc(new_content)
-
-existing.update(new)
-with open('$user_dir/settings.json', 'w') as f:
-    json.dump(existing, f, indent=4)
-PYEOF
-        echo -e "   Merged settings.json (existing settings preserved)"
+        # Prepare new settings with HOME placeholder replaced
+        local new_settings
+        new_settings=$(sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json")
+        
+        # Merge settings using jq if available
+        if command -v jq &> /dev/null; then
+            # Strip JSONC features (comments, trailing commas) from existing settings
+            local existing_clean
+            existing_clean=$(sed 's|//.*||g; s|/\*.*\*/||g' "$user_dir/settings.json" | sed ':a;N;$!ba;s/,\([\n\t ]*[}\]]\)/\1/g')
+            
+            # Merge: existing + new (new overrides existing)
+            echo "$existing_clean" | jq -s '.[0] * .[1]' - <(echo "$new_settings") > "$user_dir/settings.json.tmp" 2>/dev/null
+            if [[ $? -eq 0 ]] && [[ -s "$user_dir/settings.json.tmp" ]]; then
+                mv "$user_dir/settings.json.tmp" "$user_dir/settings.json"
+                echo -e "   Merged settings.json (existing settings preserved)"
+            else
+                rm -f "$user_dir/settings.json.tmp"
+                echo "$new_settings" > "$user_dir/settings.json"
+                echo -e "   Replaced settings.json (merge failed, backup available)"
+            fi
+        else
+            # No jq available, just replace settings
+            echo "$new_settings" > "$user_dir/settings.json"
+            echo -e "   Replaced settings.json (install jq for merging)"
+        fi
     else
         # No existing settings, just copy and replace placeholder
         sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json" > "$user_dir/settings.json"
