@@ -168,26 +168,52 @@ install_for_editor() {
         local new_settings
         new_settings=$(sed "s|{{HOME}}|$HOME|g" "$SCRIPT_DIR/setting.json")
         
-        # Merge settings using jq if available
-        if command -v jq &> /dev/null; then
-            # Strip JSONC features (comments, trailing commas) from existing settings
-            local existing_clean
-            existing_clean=$(sed 's|//.*||g; s|/\*.*\*/||g' "$user_dir/settings.json" | sed ':a;N;$!ba;s/,\([\n\t ]*[}\]]\)/\1/g')
-            
-            # Merge: existing + new (new overrides existing)
-            echo "$existing_clean" | jq -s '.[0] * .[1]' - <(echo "$new_settings") > "$user_dir/settings.json.tmp" 2>/dev/null
-            if [[ $? -eq 0 ]] && [[ -s "$user_dir/settings.json.tmp" ]]; then
-                mv "$user_dir/settings.json.tmp" "$user_dir/settings.json"
-                echo -e "   Merged settings.json (existing settings preserved)"
-            else
-                rm -f "$user_dir/settings.json.tmp"
-                echo "$new_settings" > "$user_dir/settings.json"
-                echo -e "   Replaced settings.json (merge failed, backup available)"
-            fi
+        # Merge settings using pure bash (top-level keys only)
+        # Strip JSONC features from existing settings
+        local existing_clean
+        existing_clean=$(sed 's|//.*||g; s|/\*.*\*/||g' "$user_dir/settings.json" | \
+            sed ':a;N;$!ba;s/,\([\n\t ]*[}\]]\)/\1/g')
+        
+        # Merge: parse both JSONs and combine (new overrides existing)
+        local merged
+        merged=$(awk '
+BEGIN { in_new=0; depth=0 }
+FNR==1 && NR!=1 { in_new=1 }
+{
+    # Track brace depth for multi-line values
+    gsub(/[^{}[\]]/, "", $0)
+    depth += gsub(/{|\[/, "&") - gsub(/}|\]/, "&")
+}
+/^[[:space:]]*"[^"]+":/ {
+    match($0, /"[^"]+"/)
+    key = substr($0, RSTART, RLENGTH)
+    # Store key-value, new file overwrites existing
+    if (in_new || !(key in keys)) {
+        keys[key] = $0
+        if (!(key in order)) order[key] = ++n
+    }
+}
+END {
+    print "{"
+    for (i=1; i<=n; i++) {
+        for (key in order) {
+            if (order[key] == i) {
+                val = keys[key]
+                gsub(/,$/, "", val)
+                printf "    %s%s\n", val, (i<n ? "," : "")
+            }
+        }
+    }
+    print "}"
+}
+' <(echo "$existing_clean") <(echo "$new_settings") 2>/dev/null)
+        
+        if [[ -n "$merged" ]] && [[ "$merged" != "{}" ]]; then
+            echo "$merged" > "$user_dir/settings.json"
+            echo -e "   Merged settings.json (existing settings preserved)"
         else
-            # No jq available, just replace settings
             echo "$new_settings" > "$user_dir/settings.json"
-            echo -e "   Replaced settings.json (install jq for merging)"
+            echo -e "   Replaced settings.json (merge failed, backup available)"
         fi
     else
         # No existing settings, just copy and replace placeholder
