@@ -21,6 +21,15 @@ A distraction-free "writing room" setup for VS Code & Cursor — maximum focus, 
 curl -fsSL https://raw.githubusercontent.com/raftio/clean-vsc/main/install.sh | bash
 ```
 
+CLI options (when running locally):
+
+```bash
+./install.sh              # Install for VS Code + Cursor (default)
+./install.sh --vscode     # Install only for VS Code
+./install.sh --cursor     # Install only for Cursor
+./install.sh --help       # Show all options
+```
+
 After installation:
 1. Open VS Code/Cursor
 2. Run command: `Enable Custom CSS and JS`
@@ -37,11 +46,14 @@ curl -fsSL https://raw.githubusercontent.com/raftio/clean-vsc/main/uninstall.sh 
 Or run locally:
 
 ```bash
-./uninstall.sh
+./uninstall.sh              # Uninstall for VS Code + Cursor (default)
+./uninstall.sh --vscode     # Uninstall only for VS Code
+./uninstall.sh --cursor     # Uninstall only for Cursor
+./uninstall.sh --help       # Show all options
 ```
 
 This will:
-- Remove custom CSS files
+- Remove custom CSS files (only when uninstalling both, since CSS is shared)
 - Restore settings.json from backup
 - Uninstall extensions from extensions.txt
 

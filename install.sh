@@ -30,8 +30,76 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Default: install both
+INSTALL_VSCODE=false
+INSTALL_CURSOR=false
+
+# Usage function
+usage() {
+    echo -e "${GREEN}Clean VSC Installer${NC}"
+    echo ""
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -v, --vscode     Install for VS Code only"
+    echo "  -c, --cursor     Install for Cursor only"
+    echo "  -a, --all        Install for both VS Code and Cursor (default)"
+    echo "  -h, --help       Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0              # Install for both"
+    echo "  $0 --vscode     # Install for VS Code only"
+    echo "  $0 --cursor     # Install for Cursor only"
+    echo "  $0 -v -c        # Install for both"
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -v|--vscode)
+            INSTALL_VSCODE=true
+            shift
+            ;;
+        -c|--cursor)
+            INSTALL_CURSOR=true
+            shift
+            ;;
+        -a|--all)
+            INSTALL_VSCODE=true
+            INSTALL_CURSOR=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# If no specific app selected, default to both
+if [[ "$INSTALL_VSCODE" == false ]] && [[ "$INSTALL_CURSOR" == false ]]; then
+    INSTALL_VSCODE=true
+    INSTALL_CURSOR=true
+fi
+
 echo -e "${GREEN}Clean VSC Installer${NC}"
 echo "=========================="
+
+# Show what will be installed
+echo -ne "Target: "
+if [[ "$INSTALL_VSCODE" == true ]] && [[ "$INSTALL_CURSOR" == true ]]; then
+    echo -e "${YELLOW}VS Code + Cursor${NC}"
+elif [[ "$INSTALL_VSCODE" == true ]]; then
+    echo -e "${YELLOW}VS Code${NC}"
+else
+    echo -e "${YELLOW}Cursor${NC}"
+fi
+echo ""
 
 # Download required files if running in remote mode
 if [[ "$REMOTE_MODE" == true ]]; then
@@ -267,22 +335,34 @@ install_for_editor() {
     return 0
 }
 
-# Install custom CSS
-echo -e "${YELLOW}Installing custom CSS...${NC}"
-mkdir -p "$CSS_DIR"
-cp "$SCRIPT_DIR/index.css" "$CSS_DIR/index.css"
-echo -e "   Installed index.css to $CSS_DIR"
+# Install custom CSS (shared)
+if [[ "$INSTALL_VSCODE" == true ]] || [[ "$INSTALL_CURSOR" == true ]]; then
+    echo -e "${YELLOW}Installing custom CSS...${NC}"
+    mkdir -p "$CSS_DIR"
+    cp "$SCRIPT_DIR/index.css" "$CSS_DIR/index.css"
+    echo -e "   Installed index.css to $CSS_DIR"
+else
+    echo -e "${YELLOW}Skipping custom CSS (no editor selected)${NC}"
+fi
 
 # Install for VS Code
-install_for_editor "VS Code" "$VSCODE_USER_DIR" "code" || true
+if [[ "$INSTALL_VSCODE" == true ]]; then
+    install_for_editor "VS Code" "$VSCODE_USER_DIR" "code" || true
+fi
 
 # Install for Cursor
-install_for_editor "Cursor" "$CURSOR_USER_DIR" "cursor" || true
+if [[ "$INSTALL_CURSOR" == true ]]; then
+    install_for_editor "Cursor" "$CURSOR_USER_DIR" "cursor" || true
+fi
 
 # Install extensions
 echo ""
-install_extensions "code" "VS Code" || true
-install_extensions "cursor" "Cursor" || true
+if [[ "$INSTALL_VSCODE" == true ]]; then
+    install_extensions "code" "VS Code" || true
+fi
+if [[ "$INSTALL_CURSOR" == true ]]; then
+    install_extensions "cursor" "Cursor" || true
+fi
 
 echo ""
 echo -e "${GREEN}Installation complete!${NC}"

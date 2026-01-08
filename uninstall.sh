@@ -9,10 +9,79 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Default: uninstall both
+UNINSTALL_VSCODE=false
+UNINSTALL_CURSOR=false
+
+# Usage function
+usage() {
+    echo -e "${BLUE}Clean VSC Uninstaller${NC}"
+    echo ""
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -v, --vscode     Uninstall for VS Code only"
+    echo "  -c, --cursor     Uninstall for Cursor only"
+    echo "  -a, --all        Uninstall for both VS Code and Cursor (default)"
+    echo "  -h, --help       Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0              # Uninstall for both"
+    echo "  $0 --vscode     # Uninstall for VS Code only"
+    echo "  $0 --cursor     # Uninstall for Cursor only"
+    echo "  $0 -v -c        # Uninstall for both"
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -v|--vscode)
+            UNINSTALL_VSCODE=true
+            shift
+            ;;
+        -c|--cursor)
+            UNINSTALL_CURSOR=true
+            shift
+            ;;
+        -a|--all)
+            UNINSTALL_VSCODE=true
+            UNINSTALL_CURSOR=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# If no specific app selected, default to both
+if [[ "$UNINSTALL_VSCODE" == false ]] && [[ "$UNINSTALL_CURSOR" == false ]]; then
+    UNINSTALL_VSCODE=true
+    UNINSTALL_CURSOR=true
+fi
 
 echo -e "${RED}Clean VSC Uninstaller${NC}"
 echo "=========================="
+
+# Show what will be uninstalled
+echo -ne "Target: "
+if [[ "$UNINSTALL_VSCODE" == true ]] && [[ "$UNINSTALL_CURSOR" == true ]]; then
+    echo -e "${YELLOW}VS Code + Cursor${NC}"
+elif [[ "$UNINSTALL_VSCODE" == true ]]; then
+    echo -e "${YELLOW}VS Code${NC}"
+else
+    echo -e "${YELLOW}Cursor${NC}"
+fi
+echo ""
 
 # Detect OS and set VS Code paths
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -154,31 +223,47 @@ restore_settings() {
     return 0
 }
 
-# Remove custom CSS directory
-echo -e "${YELLOW}Removing custom CSS...${NC}"
-if [[ -d "$CSS_DIR" ]]; then
-    rm -rf "$CSS_DIR"
-    echo -e "   Removed $CSS_DIR"
+# Remove custom CSS directory (only if uninstalling for both apps)
+if [[ "$UNINSTALL_VSCODE" == true ]] && [[ "$UNINSTALL_CURSOR" == true ]]; then
+    echo -e "${YELLOW}Removing custom CSS...${NC}"
+    if [[ -d "$CSS_DIR" ]]; then
+        rm -rf "$CSS_DIR"
+        echo -e "   Removed $CSS_DIR"
+    else
+        echo -e "   CSS directory not found, skipping..."
+    fi
 else
-    echo -e "   CSS directory not found, skipping..."
+    echo -e "${YELLOW}Skipping CSS removal (CSS shared between apps)${NC}"
 fi
 
 # Process VS Code
-if is_editor_installed "VS Code" "code"; then
-    echo ""
-    restore_settings "VS Code" "$VSCODE_USER_DIR"
+if [[ "$UNINSTALL_VSCODE" == true ]]; then
+    if is_editor_installed "VS Code" "code"; then
+        echo ""
+        restore_settings "VS Code" "$VSCODE_USER_DIR"
+    else
+        echo -e "   VS Code not installed, skipping..."
+    fi
 fi
 
 # Process Cursor
-if is_editor_installed "Cursor" "cursor"; then
-    echo ""
-    restore_settings "Cursor" "$CURSOR_USER_DIR"
+if [[ "$UNINSTALL_CURSOR" == true ]]; then
+    if is_editor_installed "Cursor" "cursor"; then
+        echo ""
+        restore_settings "Cursor" "$CURSOR_USER_DIR"
+    else
+        echo -e "   Cursor not installed, skipping..."
+    fi
 fi
 
 # Uninstall extensions from extensions.txt only
 echo ""
-uninstall_extensions "code" "VS Code" || true
-uninstall_extensions "cursor" "Cursor" || true
+if [[ "$UNINSTALL_VSCODE" == true ]]; then
+    uninstall_extensions "code" "VS Code" || true
+fi
+if [[ "$UNINSTALL_CURSOR" == true ]]; then
+    uninstall_extensions "cursor" "Cursor" || true
+fi
 
 echo ""
 echo -e "${GREEN}Uninstallation complete!${NC}"
